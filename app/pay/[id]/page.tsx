@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-
-export const dynamic = "force-dynamic";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PayInvoiceClient } from "@/components/PayInvoiceClient";
 import type { Invoice, Profile } from "@/types";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
+
+export const dynamic = "force-dynamic";
 
 export default async function PayPage({
   params,
@@ -22,20 +23,21 @@ export default async function PayPage({
 
   if (error || !invoice) notFound();
 
-  const inv = invoice as unknown as Invoice;
+  const inv = normalizeInvoice(invoice as Record<string, unknown>);
   if (inv.status !== "sent" && inv.status !== "paid") notFound();
 
   const { data: profile } = await admin
     .from("profiles")
     .select("business_name")
     .eq("id", inv.user_id)
-    .single();
+    .maybeSingle();
 
-  const businessName = (profile as Pick<Profile, "business_name"> | null)?.business_name || "TradeFlow";
+  const businessName =
+    (profile as Pick<Profile, "business_name"> | null)?.business_name || "TradeFlow";
 
   return (
     <PayInvoiceClient
-      invoice={inv}
+      invoice={inv as Invoice}
       businessName={businessName}
       showPaidBanner={searchParams.paid === "true" || inv.status === "paid"}
     />

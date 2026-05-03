@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export async function GET(
   _request: NextRequest,
@@ -13,7 +14,7 @@ export async function GET(
     .single();
 
   if (error) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  return NextResponse.json(data);
+  return NextResponse.json(normalizeInvoice(data as Record<string, unknown>));
 }
 
 export async function PATCH(
@@ -36,5 +37,5 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(normalizeInvoice(data as Record<string, unknown>));
 }

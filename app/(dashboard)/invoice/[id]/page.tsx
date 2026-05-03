@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceDetailClient } from "@/components/InvoiceDetailClient";
-import type { Invoice } from "@/types";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -19,5 +19,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (error || !data) notFound();
 
-  return <InvoiceDetailClient invoice={data as unknown as Invoice} />;
+  const invoice = normalizeInvoice(data as Record<string, unknown>);
+
+  return <InvoiceDetailClient invoice={invoice} />;
 }

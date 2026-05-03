@@ -4,6 +4,7 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { InvoiceCard } from "@/components/InvoiceCard";
 import type { Invoice, DashboardStats as Stats } from "@/types";
 import { Mic, Plus } from "lucide-react";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -15,19 +16,25 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    return null;
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("business_name")
-    .eq("id", user!.id)
-    .single();
+    .eq("id", user.id)
+    .maybeSingle();
 
-  const { data: invoicesRaw } = await supabase
+  const { data: invoicesRaw, error: invError } = await supabase
     .from("invoices")
     .select("*")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const invoices = (invoicesRaw || []) as Invoice[];
+  const invoices: Invoice[] = (invoicesRaw || []).map((row) =>
+    normalizeInvoice(row as Record<string, unknown>)
+  );
 
   const paid = invoices.filter((i) => i.status === "paid");
   const sent = invoices.filter((i) => i.status === "sent");
@@ -58,6 +65,16 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+      {invError ? (
+        <div
+          className="border border-[var(--warning)] rounded-lg px-4 py-3 text-sm text-[var(--warning)] bg-[rgba(245,166,35,0.08)]"
+          role="alert"
+        >
+          Invoices could not be loaded ({invError.message}). Confirm the Supabase SQL from the
+          setup guide ran successfully and environment variables are set on Vercel.
+        </div>
+      ) : null}
+
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="font-syne font-extrabold text-2xl sm:text-3xl text-[var(--text-primary)]">

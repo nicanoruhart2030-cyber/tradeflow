@@ -12,7 +12,7 @@ const NAV = [
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -20,19 +20,24 @@ export function Sidebar() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
+    onNavigate?.();
   };
 
   return (
-    <aside className="w-56 shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col min-h-screen">
+    <aside className="w-full h-full md:w-56 shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col min-h-screen">
       <div className="p-5 border-b border-[var(--border)]">
-        <div className="flex items-center gap-2">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2"
+          onClick={() => onNavigate?.()}
+        >
           <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center">
             <Zap size={14} className="text-[#080810]" strokeWidth={2.5} />
           </div>
           <span className="font-syne font-extrabold text-[var(--text-primary)] text-lg tracking-tight">
             TradeFlow
           </span>
-        </div>
+        </Link>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5" aria-label="Main">
@@ -43,6 +48,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
+              onClick={() => onNavigate?.()}
               className={`
                 flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] rounded-lg text-sm transition-all border
                 ${

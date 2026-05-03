@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export async function GET(request: NextRequest) {
   const supabase = createClient();
@@ -24,7 +25,10 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data);
+  const normalized = (data || []).map((row) =>
+    normalizeInvoice(row as Record<string, unknown>)
+  );
+  return NextResponse.json(normalized);
 }
 
 export async function POST(request: NextRequest) {
@@ -73,5 +77,5 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json(normalizeInvoice(data as Record<string, unknown>), { status: 201 });
 }

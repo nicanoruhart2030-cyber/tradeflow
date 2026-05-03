@@ -6,7 +6,10 @@ Voice-to-invoice MVP for solo trades (Next.js 14, Supabase, Groq, Stripe, Twilio
 
 1. Copy `.env.example` to `.env.local` and fill keys.
 2. Run the SQL from the product spec in Supabase (profiles, customers, invoices, RLS, triggers, `generate_invoice_number`).
-3. `npm install` then `npm run dev`.
+3. **Supabase Auth → URL configuration:** add redirect URLs for every environment:
+   - `http://localhost:3000/auth/callback`
+   - `https://<your-vercel-domain>/auth/callback`
+4. `npm install` then `npm run dev`.
 
 ## Routes
 

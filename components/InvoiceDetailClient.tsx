@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Invoice } from "@/types";
 import { StatusTag } from "@/components/ui/StatusTag";
 import { formatCurrency, formatDate, isInvoiceOverdue } from "@/lib/utils";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 import { Check } from "lucide-react";
 
 interface InvoiceDetailClientProps {
@@ -20,7 +21,10 @@ export function InvoiceDetailClient({ invoice: initial }: InvoiceDetailClientPro
 
   const refresh = async () => {
     const res = await fetch(`/api/invoices/${invoice.id}`);
-    if (res.ok) setInvoice((await res.json()) as Invoice);
+    if (res.ok) {
+      const raw = (await res.json()) as Record<string, unknown>;
+      setInvoice(normalizeInvoice(raw));
+    }
   };
 
   const send = async () => {

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePDF } from "@/components/InvoicePDF";
-import type { Invoice } from "@/types";
 import type { Profile } from "@/types";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export async function GET(
   _request: NextRequest,
@@ -30,8 +30,9 @@ export async function GET(
 
   if (!invoice || !profile) return new NextResponse("Not found", { status: 404 });
 
+  const inv = normalizeInvoice(invoice as Record<string, unknown>);
   const buffer = await renderToBuffer(
-    <InvoicePDF invoice={invoice as unknown as Invoice} profile={profile as unknown as Profile} />
+    <InvoicePDF invoice={inv} profile={profile as unknown as Profile} />
   );
 
   return new NextResponse(new Uint8Array(buffer), {

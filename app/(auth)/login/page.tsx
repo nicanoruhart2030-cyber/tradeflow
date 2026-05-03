@@ -1,19 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Zap } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"password" | "magic">("password");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const nextPath = searchParams.get("next") || "/dashboard";
+  const urlError = searchParams.get("error");
+
+  useEffect(() => {
+    if (urlError) setError(urlError);
+  }, [urlError]);
+
+  const authCallbackUrl = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  };
 
   const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +38,7 @@ export default function LoginPage() {
       setError(err.message);
       return;
     }
-    router.push("/dashboard");
+    router.push(nextPath.startsWith("/") ? nextPath : "/dashboard");
     router.refresh();
   };
 
@@ -33,10 +46,9 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${origin}/dashboard` },
+      options: { emailRedirectTo: authCallbackUrl() },
     });
     setLoading(false);
     if (err) {
@@ -136,5 +148,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-[var(--text-muted)]">Loading…</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
