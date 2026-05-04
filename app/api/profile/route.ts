@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
+import { getClerkUserId } from "@/lib/clerk-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfileForUser } from "@/lib/ensure-profile";
 import type { Profile } from "@/types";
@@ -7,14 +8,23 @@ import type { Profile } from "@/types";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { userId } = await auth();
+  const userId = await getClerkUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    return NextResponse.json({ error: "Server missing Supabase configuration" }, { status: 503 });
+  }
 
   const supabase = createAdminClient();
   const user = await currentUser();
   const email = user?.emailAddresses[0]?.emailAddress ?? "";
 
-  await ensureProfileForUser(supabase, userId, email);
+  const ensured = await ensureProfileForUser(supabase, userId, email);
+  if (!ensured.ok) {
+    return NextResponse.json({ error: ensured.error }, { status: 500 });
+  }
 
   const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
   if (error || !data) {
@@ -24,7 +34,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { userId } = await auth();
+  const userId = await getClerkUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json()) as Partial<
@@ -41,6 +51,12 @@ export async function PATCH(request: NextRequest) {
       | "tax_rate"
     >
   >;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    return NextResponse.json({ error: "Server missing Supabase configuration" }, { status: 503 });
+  }
 
   const supabase = createAdminClient();
   const { error } = await supabase.from("profiles").update(body).eq("id", userId);

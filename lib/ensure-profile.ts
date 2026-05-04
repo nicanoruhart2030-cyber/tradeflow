@@ -2,19 +2,23 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export type EnsureProfileResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 /** Insert a profiles row for new Clerk users (replaces Supabase Auth trigger). */
 export async function ensureProfileForUser(
   supabase: SupabaseClient,
   userId: string,
   email: string
-): Promise<void> {
+): Promise<EnsureProfileResult> {
   const { data: existing } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", userId)
     .maybeSingle();
 
-  if (existing) return;
+  if (existing) return { ok: true };
 
   const { error } = await supabase.from("profiles").insert({
     id: userId,
@@ -30,6 +34,7 @@ export async function ensureProfileForUser(
   });
 
   if (error) {
-    throw new Error(`Could not create profile: ${error.message}`);
+    return { ok: false, error: error.message };
   }
+  return { ok: true };
 }

@@ -1,11 +1,11 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { InvoiceDetailClient } from "@/components/InvoiceDetailClient";
 import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const ctx = await getSupabaseWithUser();
-  if (!ctx) redirect("/login");
+  if (!ctx) notFound();
 
   const { data, error } = await ctx.supabase
     .from("invoices")

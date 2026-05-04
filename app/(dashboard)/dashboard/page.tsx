@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { currentUser } from "@clerk/nextjs/server";
 import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { ensureProfileForUser } from "@/lib/ensure-profile";
@@ -14,12 +14,34 @@ function startOfMonth(d: Date) {
 }
 
 export default async function DashboardPage() {
+  noStore();
+
   const ctx = await getSupabaseWithUser();
-  if (!ctx) redirect("/login");
+  if (!ctx) {
+    return (
+      <div className="p-6 sm:p-10 max-w-lg mx-auto space-y-4">
+        <h1 className="font-syne font-extrabold text-xl text-[var(--text-primary)]">
+          Can&apos;t load your workspace
+        </h1>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Either you&apos;re not signed in, or Supabase isn&apos;t configured on the server. Check
+          that <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+          <code className="font-mono text-xs">SUPABASE_SERVICE_ROLE_KEY</code> are set on Vercel,
+          then redeploy.
+        </p>
+        <Link
+          href="/login"
+          className="inline-flex text-sm text-[var(--accent)] underline underline-offset-2"
+        >
+          Back to sign in
+        </Link>
+      </div>
+    );
+  }
 
   const user = await currentUser();
   const email = user?.emailAddresses[0]?.emailAddress ?? "";
-  await ensureProfileForUser(ctx.supabase, ctx.userId, email);
+  const profileBootstrap = await ensureProfileForUser(ctx.supabase, ctx.userId, email);
 
   const { data: profile } = await ctx.supabase
     .from("profiles")
@@ -66,6 +88,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+      {!profileBootstrap.ok ? (
+        <div
+          className="border border-[var(--danger)] rounded-lg px-4 py-3 text-sm text-[var(--danger)] bg-[rgba(248,113,113,0.08)]"
+          role="alert"
+        >
+          Profile row could not be created: {profileBootstrap.error}. If you migrated to Clerk,
+          run <code className="font-mono text-xs">supabase/migrations/20250204_clerk_user_ids.sql</code>{" "}
+          so <code className="font-mono text-xs">profiles.id</code> accepts Clerk user ids.
+        </div>
+      ) : null}
+
       {invError ? (
         <div
           className="border border-[var(--warning)] rounded-lg px-4 py-3 text-sm text-[var(--warning)] bg-[rgba(245,166,35,0.08)]"
