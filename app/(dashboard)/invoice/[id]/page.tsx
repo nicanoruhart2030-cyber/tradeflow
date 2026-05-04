@@ -1,20 +1,17 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { InvoiceDetailClient } from "@/components/InvoiceDetailClient";
 import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) redirect("/login");
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("invoices")
     .select("*")
     .eq("id", params.id)
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .single();
 
   if (error || !data) notFound();

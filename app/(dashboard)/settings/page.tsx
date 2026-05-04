@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 
 const empty: Profile = {
@@ -20,7 +19,6 @@ const empty: Profile = {
 };
 
 export default function SettingsPage() {
-  const supabase = createClient();
   const [profile, setProfile] = useState<Profile>(empty);
   const [hstNumber, setHstNumber] = useState("");
   const [loading, setLoading] = useState(true);
@@ -31,31 +29,29 @@ export default function SettingsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      if (!cancelled && data) setProfile(data as unknown as Profile);
+      const res = await fetch("/api/profile");
+      if (!res.ok) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      const data = (await res.json()) as Profile;
+      if (!cancelled && data) setProfile(data);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setErr(null);
     setMsg(null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         business_name: profile.business_name,
         owner_name: profile.owner_name,
         phone: profile.phone,
@@ -65,11 +61,13 @@ export default function SettingsPage() {
         province: profile.province,
         postal_code: profile.postal_code,
         tax_rate: profile.tax_rate,
-      })
-      .eq("id", user.id);
+      }),
+    });
     setSaving(false);
-    if (error) setErr(error.message);
-    else setMsg("Saved.");
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setErr(typeof j.error === "string" ? j.error : "Save failed");
+    } else setMsg("Saved.");
     void hstNumber;
   };
 

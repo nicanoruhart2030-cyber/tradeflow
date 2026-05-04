@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePDF } from "@/components/InvoicePDF";
 import type { Profile } from "@/types";
@@ -9,23 +9,20 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return new NextResponse("Unauthorized", { status: 401 });
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return new NextResponse("Unauthorized", { status: 401 });
 
-  const { data: invoice } = await supabase
+  const { data: invoice } = await ctx.supabase
     .from("invoices")
     .select("*")
     .eq("id", params.id)
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .single();
 
-  const { data: profile } = await supabase
+  const { data: profile } = await ctx.supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("id", ctx.userId)
     .single();
 
   if (!invoice || !profile) return new NextResponse("Not found", { status: 404 });

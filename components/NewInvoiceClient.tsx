@@ -6,7 +6,6 @@ import VoiceRecorder from "@/components/VoiceRecorder";
 import { JobParser } from "@/components/JobParser";
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { Spinner } from "@/components/ui/Spinner";
-import { createClient } from "@/lib/supabase/client";
 import { calculateTotals } from "@/lib/utils";
 import type { LineItem, ParsedJob } from "@/types";
 
@@ -15,7 +14,6 @@ type Step = "input" | "review" | "success";
 
 export function NewInvoiceClient() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [tab, setTab] = useState<Tab>("voice");
   const [step, setStep] = useState<Step>("input");
@@ -40,7 +38,9 @@ export function NewInvoiceClient() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("profiles").select("tax_rate").single();
+      const res = await fetch("/api/profile");
+      if (!res.ok) return;
+      const data = (await res.json()) as { tax_rate?: number };
       if (!cancelled && data?.tax_rate != null) {
         setTaxRate(Number(data.tax_rate));
       }
@@ -48,7 +48,7 @@ export function NewInvoiceClient() {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   const totals = useMemo(
     () => calculateTotals(lineItems, taxRate),

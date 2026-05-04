@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export async function GET(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-  let query = supabase
+  let query = ctx.supabase
     .from("invoices")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -32,17 +29,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
 
-  const { data: numberData, error: rpcError } = await supabase.rpc(
+  const { data: numberData, error: rpcError } = await ctx.supabase.rpc(
     "generate_invoice_number",
-    { p_user_id: user.id }
+    { p_user_id: ctx.userId }
   );
 
   if (rpcError) {
@@ -65,12 +59,12 @@ export async function POST(request: NextRequest) {
     due_date:
       body.due_date ||
       new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
-    user_id: user.id,
+    user_id: ctx.userId,
     invoice_number: numberData as string,
     status: "draft",
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("invoices")
     .insert(invoiceData)
     .select()

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { normalizeInvoice } from "@/lib/invoice-normalize";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data, error } = await ctx.supabase
     .from("invoices")
     .select("*")
     .eq("id", params.id)
+    .eq("user_id", ctx.userId)
     .single();
 
   if (error) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -21,18 +24,15 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("invoices")
     .update(body)
     .eq("id", params.id)
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .select()
     .single();
 

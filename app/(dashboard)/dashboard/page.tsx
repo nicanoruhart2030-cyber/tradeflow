@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { currentUser } from "@clerk/nextjs/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
+import { ensureProfileForUser } from "@/lib/ensure-profile";
 import { DashboardStats } from "@/components/DashboardStats";
 import { InvoiceCard } from "@/components/InvoiceCard";
 import type { Invoice, DashboardStats as Stats } from "@/types";
@@ -11,25 +14,23 @@ function startOfMonth(d: Date) {
 }
 
 export default async function DashboardPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) redirect("/login");
 
-  if (!user) {
-    return null;
-  }
+  const user = await currentUser();
+  const email = user?.emailAddresses[0]?.emailAddress ?? "";
+  await ensureProfileForUser(ctx.supabase, ctx.userId, email);
 
-  const { data: profile } = await supabase
+  const { data: profile } = await ctx.supabase
     .from("profiles")
     .select("business_name")
-    .eq("id", user.id)
+    .eq("id", ctx.userId)
     .maybeSingle();
 
-  const { data: invoicesRaw, error: invError } = await supabase
+  const { data: invoicesRaw, error: invError } = await ctx.supabase
     .from("invoices")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .order("created_at", { ascending: false });
 
   const invoices: Invoice[] = (invoicesRaw || []).map((row) =>
@@ -70,8 +71,11 @@ export default async function DashboardPage() {
           className="border border-[var(--warning)] rounded-lg px-4 py-3 text-sm text-[var(--warning)] bg-[rgba(245,166,35,0.08)]"
           role="alert"
         >
-          Invoices could not be loaded ({invError.message}). Confirm the Supabase SQL from the
-          setup guide ran successfully and environment variables are set on Vercel.
+          Invoices could not be loaded ({invError.message}). If you just switched to Clerk, run
+          the SQL in <code className="font-mono text-xs">supabase/migrations/20250204_clerk_user_ids.sql</code>{" "}
+          so <code className="font-mono text-xs">user_id</code> accepts Clerk ids, then update{" "}
+          <code className="font-mono text-xs">generate_invoice_number</code> to take{" "}
+          <code className="font-mono text-xs">text</code>.
         </div>
       ) : null}
 

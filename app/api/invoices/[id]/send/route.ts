@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseWithUser } from "@/lib/supabase/server";
 import { createPaymentLink } from "@/lib/stripe";
 import { sendInvoiceSMS } from "@/lib/twilio";
 import { formatCurrency } from "@/lib/utils";
@@ -8,27 +8,24 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getSupabaseWithUser();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: invoice, error: invoiceError } = await supabase
+  const { data: invoice, error: invoiceError } = await ctx.supabase
     .from("invoices")
     .select("*")
     .eq("id", params.id)
-    .eq("user_id", user.id)
+    .eq("user_id", ctx.userId)
     .single();
 
   if (invoiceError || !invoice) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await ctx.supabase
     .from("profiles")
     .select("business_name")
-    .eq("id", user.id)
+    .eq("id", ctx.userId)
     .single();
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
@@ -42,7 +39,7 @@ export async function POST(
       appUrl
     );
 
-    await supabase
+    await ctx.supabase
       .from("invoices")
       .update({ stripe_payment_link: paymentLink, status: "sent" })
       .eq("id", params.id);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getGroq, JOB_PARSE_SYSTEM_PROMPT } from "@/lib/groq";
-import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 function extractJson(content: string): string {
@@ -12,11 +12,8 @@ function extractJson(content: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const { userId } = await auth();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

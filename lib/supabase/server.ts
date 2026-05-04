@@ -1,27 +1,16 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import "server-only";
 
-export function createClient() {
-  const cookieStore = cookies();
+import { auth } from "@clerk/nextjs/server";
+import { createAdminClient } from "./admin";
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            /* Server Component: session refresh happens in middleware */
-          }
-        },
-      },
-    }
-  );
+export type AuthedSupabaseContext = {
+  supabase: ReturnType<typeof createAdminClient>;
+  userId: string;
+};
+
+/** Clerk-authenticated Supabase (service role + caller userId). Never trust client-supplied ids. */
+export async function getSupabaseWithUser(): Promise<AuthedSupabaseContext | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+  return { supabase: createAdminClient(), userId };
 }
